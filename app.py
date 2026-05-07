@@ -35,26 +35,15 @@ def capture_logic():
     return pd.DataFrame(packets_captured)
 
 # --- UI Buttons ---
-# --- UI Buttons ---
 if st.sidebar.button("🚀 Start Live Sniffing"):
-    with st.spinner("Sniffing network traffic..."):
-        try:
-            # Try to capture live traffic (Works on your laptop)
-            new_data = capture_logic()
-            st.session_state.df_data = pd.concat([st.session_state.df_data, new_data], ignore_index=True)
-            st.success(f"Successfully captured {len(new_data)} packets!")
-            
-        except Exception as e:
-            # FALLBACK: If live sniffing fails (Works on Streamlit Cloud)
-            st.sidebar.warning("⚠️ Live Sniffing restricted in Cloud.")
-            
-            try:
-                # Load your uploaded CSV file instead
-                new_data = pd.read_csv("network_traffic.csv")
-                st.session_state.df_data = new_data
-                st.info("Showing data from 'network_traffic.csv' instead.")
-            except FileNotFoundError:
-                st.sidebar.error("CSV file not found on GitHub!")
+    with st.spinner("Sniffing network traffic... Please browse a website now!"):
+        new_data = capture_logic()
+        st.session_state.df_data = pd.concat([st.session_state.df_data, new_data], ignore_index=True)
+    st.success(f"Successfully captured {len(new_data)} packets!")
+
+if st.sidebar.button("🗑️ Clear Data"):
+    st.session_state.df_data = pd.DataFrame(columns=['Source', 'Destination', 'Protocol', 'Length'])
+    st.rerun()
 
 # --- Dashboard Layout ---
 df = st.session_state.df_data
