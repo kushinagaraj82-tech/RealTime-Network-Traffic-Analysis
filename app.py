@@ -3,60 +3,34 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scapy.all import sniff, IP, TCP, UDP
-import time
 
-# 1. PAGE CONFIG & MODERN THEME
-st.set_page_config(page_title="Pro Network Analyzer", layout="wide", page_icon="🛡️")
+# 1. Page Configuration
+st.set_page_config(page_title="Network Traffic Analyzer", layout="wide", page_icon="📡")
 
-# Custom CSS for a "Dark Mode" Innovative look
-st.markdown("""
-    <style>
-    .main {
-        background-color: #0e1117;
-    }
-    .stMetric {
-        background-color: #1f2937;
-        padding: 15px;
-        border-radius: 10px;
-        border-left: 5px solid #3b82f6;
-    }
-    div.stButton > button:first-child {
-        background-color: #3b82f6;
-        color: white;
-        width: 100%;
-        border-radius: 5px;
-        height: 3em;
-        font-weight: bold;
-    }
-    .status-box {
-        padding: 10px;
-        border-radius: 5px;
-        margin-bottom: 10px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+# --- Sidebar ---
+with st.sidebar:
+    st.image("https://cdn-icons-png.flaticon.com/512/3067/3067451.png", width=100)
+    st.title("Control Panel")
+    st.markdown("---")
+    
+    st.header("Capture Settings")
+    num_packets = st.slider("Packets to capture", 10, 500, 50)
+    
+    st.markdown("### Execution")
+    start_btn = st.button("🚀 Start Live Sniffing")
+    clear_btn = st.button("🗑️ Clear Data")
 
-# --- App Title Section ---
-st.title("🛡️ CyberPulse: Real-Time Packet Engine")
-st.markdown("---")
+# --- Always Visible Title ---
+st.title("📡 Real-Time Network Packet Analyzer")
 
-# Initialize session state
+# Initialize session state to store our data
 if 'df_data' not in st.session_state:
     st.session_state.df_data = pd.DataFrame(columns=['Source', 'Destination', 'Protocol', 'Length'])
 
-# --- Sidebar (Settings) ---
-with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/2092/2092663.png", width=80)
-    st.header("Control Center")
-    num_packets = st.slider("Target Packets", 10, 500, 50)
-    
-    st.markdown("### Actions")
-    start_btn = st.button("🚀 INITIATE SCAN")
-    clear_btn = st.button("🗑️ PURGE LOGS")
-
-# --- Sniffer Logic ---
+# --- The Sniffer Logic ---
 def capture_logic():
     packets_captured = []
+    
     def packet_callback(packet):
         if packet.haslayer(IP):
             proto = "TCP" if packet.haslayer(TCP) else "UDP" if packet.haslayer(UDP) else "Other"
@@ -66,19 +40,21 @@ def capture_logic():
                 "Protocol": proto,
                 "Length": len(packet)
             })
-    sniff(prn=packet_callback, count=num_packets, timeout=15)
+
+    # Start sniffing
+    sniff(prn=packet_callback, count=num_packets, timeout=20)
     return pd.DataFrame(packets_captured)
 
-# --- Button Handling ---
+# --- UI Buttons Logic ---
 if start_btn:
-    progress_bar = st.progress(0)
-    for i in range(100):
-        time.sleep(0.01)
-        progress_bar.progress(i + 1)
-    
-    new_data = capture_logic()
-    st.session_state.df_data = pd.concat([st.session_state.df_data, new_data], ignore_index=True)
-    st.toast("Scan Complete!", icon='✅')
+    with st.spinner("Sniffing network traffic... Please browse a website now!"):
+        new_data = capture_logic()
+        if not new_data.empty:
+            st.session_state.df_data = pd.concat([st.session_state.df_data, new_data], ignore_index=True)
+            # Re-added the green success message here
+            st.success(f"Capture Successful! Added {len(new_data)} packets to the analyzer.")
+        else:
+            st.error("No packets captured. Check your Admin permissions/Npcap.")
 
 if clear_btn:
     st.session_state.df_data = pd.DataFrame(columns=['Source', 'Destination', 'Protocol', 'Length'])
@@ -88,40 +64,43 @@ if clear_btn:
 df = st.session_state.df_data
 
 if not df.empty:
-    # Row 1: Metrics (Cards)
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("Total Packets", len(df))
-    with col2:
-        st.metric("Avg Size", f"{int(df['Length'].mean())} B")
-    with col3:
-        st.metric("TCP Count", len(df[df['Protocol']=='TCP']))
-    with col4:
-        st.metric("UDP Count", len(df[df['Protocol']=='UDP']))
+    # 1. Metrics
+    st.markdown("### 📈 Real-Time Metrics")
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Total Packets", len(df))
+    m2.metric("Avg Packet Size", f"{round(df['Length'].mean(), 1)} B")
+    m3.metric("TCP Packets", len(df[df['Protocol'] == "TCP"]))
+    m4.metric("Most Active IP", df['Source'].mode()[0])
 
-    st.markdown("### 📊 Network Insights")
-    
-    # Row 2: Charts
+    # 2. Charts Section
     c1, c2 = st.columns(2)
     with c1:
-        st.markdown("**Traffic Composition**")
-        fig1, ax1 = plt.subplots(facecolor='#0e1117')
-        df['Protocol'].value_counts().plot(kind='pie', autopct='%1.1f%%', ax=ax1, 
-                                        colors=['#3b82f6', '#10b981', '#ef4444'], textprops={'color':"w"})
+        st.write("### Protocol Distribution")
+        fig1, ax1 = plt.subplots()
+        df['Protocol'].value_counts().plot(kind='pie', autopct='%1.1f%%', ax=ax1, colors=['#3498db', '#2ecc71', '#e74c3c'])
+        plt.ylabel("") 
         st.pyplot(fig1)
     
     with c2:
-        st.markdown("**Bandwidth Distribution**")
-        fig2, ax2 = plt.subplots(facecolor='#0e1117')
-        sns.histplot(df['Length'], kde=True, ax=ax2, color='#3b82f6')
-        ax2.tick_params(colors='white')
-        ax2.xaxis.label.set_color('white')
-        ax2.yaxis.label.set_color('white')
+        st.write("### Packet Size Analysis")
+        fig2, ax2 = plt.subplots()
+        sns.histplot(df['Length'], kde=True, ax=ax2, color='purple')
+        plt.xlabel("Size (Bytes)")
         st.pyplot(fig2)
 
-    # Row 3: Interactive Table
-    st.markdown("### 📜 Real-Time Logs")
-    st.dataframe(df.tail(50), use_container_width=True)
+    # 3. Top IPs
+    st.write("### Top 5 Source IP Addresses (Traffic Volume)")
+    fig3, ax3 = plt.subplots(figsize=(10, 3)) 
+    top_ips = df['Source'].value_counts().head(5)
+    sns.barplot(x=top_ips.values, y=top_ips.index, ax=ax3, palette="magma")
+    plt.xlabel("Number of Packets")
+    st.pyplot(fig3)
+
+    # 4. Data Table
+    st.write("### Captured Traffic Logs (Latest 20)")
+    st.dataframe(df.tail(20), use_container_width=True)
 
 else:
-    st.info("System Standby. Please initiate a scan from the Control Center to view telemetry.")
+    # This only shows when no data has been captured yet
+    st.info("Status: System Ready. Awaiting live packet ingestion.")
+    st.write("Use the sidebar control panel to start a scan. Captured telemetry will appear here.")
